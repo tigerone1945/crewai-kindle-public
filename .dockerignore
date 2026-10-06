@@ -1,0 +1,21 @@
+# イメージに入れないもの（秘密情報・開発用のデータ・履歴・大きなもの）
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+.venv
+.claude
+.playwright-mcp
+**/__pycache__
+**/*.pyc
+.pytest_cache
+data/*.db
+data/traces
+data/memory
+docs
+source
+tests
+examples
+evaluations
+infrastructure
