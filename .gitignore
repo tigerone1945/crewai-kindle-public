@@ -1,0 +1,10 @@
+.DS_Store
+.env
+.venv/
+__pycache__/
+*.pyc
+data/memory/
+data/traces/
+data/*.db
+data/*.db-*
+secrets/
