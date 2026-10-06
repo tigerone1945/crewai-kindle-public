@@ -1,0 +1,106 @@
+{
+  "version": "1.0",
+  "dataset": "data/ai_agent_practice_sales.csv",
+  "rules_ref": "shared/sales_rules.md",
+  "description": "本番・開発中に見つけた失敗を、再現する Case（Production Improvement Loop）。追加のルールは evaluation_spec.md §7。",
+  "cases": [
+    {
+      "id": "case-f001a-cumulative-share-region",
+      "title": "上位2地域の累積（構成比を足し算させない）",
+      "turns": [
+        "地域別の売上で、上位2地域の合計金額と、全体に占める割合を教えてください。"
+      ],
+      "available_from_chapter": 12,
+      "criteria": [
+        "data_groundedness",
+        "tool_selection",
+        "completeness"
+      ],
+      "expected": {
+        "tools_any_of": [
+          "get_sales_by_region"
+        ],
+        "must_contain_numbers": [
+          16813590
+        ],
+        "must_contain_text": [
+          "59.4"
+        ]
+      },
+      "notes": "失敗 F-001。層: Tool。第5章の統合テストが、時々失敗した。原因は LLM が構成比を自分で足したこと（プロンプトで「足さない」と指示しても、30問中 6問しか通らなかった）。Tool が「上位からの累積」を返すように直し、30/30 になった（第12章）。"
+    },
+    {
+      "id": "case-f001b-cumulative-share-category",
+      "title": "上位2カテゴリの累積（構成比を足し算させない）",
+      "turns": [
+        "カテゴリ別の売上で、上位2カテゴリの合計金額と、全体に占める割合を教えてください。"
+      ],
+      "available_from_chapter": 12,
+      "criteria": [
+        "data_groundedness",
+        "tool_selection",
+        "completeness"
+      ],
+      "expected": {
+        "tools_any_of": [
+          "get_sales_by_category"
+        ],
+        "must_contain_numbers": [
+          22981020
+        ],
+        "must_contain_text": [
+          "81.2"
+        ]
+      },
+      "notes": "失敗 F-001。層: Tool。第5章の統合テストが、時々失敗した。原因は LLM が構成比を自分で足したこと（プロンプトで「足さない」と指示しても、30問中 6問しか通らなかった）。Tool が「上位からの累積」を返すように直し、30/30 になった（第12章）。"
+    },
+    {
+      "id": "case-f001c-cumulative-share-product",
+      "title": "上位2商品の累積（構成比を足し算させない）",
+      "turns": [
+        "商品別の売上で、上位2商品の合計金額と、全体に占める割合を教えてください。"
+      ],
+      "available_from_chapter": 12,
+      "criteria": [
+        "data_groundedness",
+        "tool_selection",
+        "completeness"
+      ],
+      "expected": {
+        "tools_any_of": [
+          "get_sales_by_product"
+        ],
+        "must_contain_numbers": [
+          15264325
+        ],
+        "must_contain_text": [
+          "53.9"
+        ]
+      },
+      "notes": "失敗 F-001。層: Tool。第5章の統合テストが、時々失敗した。原因は LLM が構成比を自分で足したこと（プロンプトで「足さない」と指示しても、30問中 6問しか通らなかった）。Tool が「上位からの累積」を返すように直し、30/30 になった（第12章）。"
+    },
+    {
+      "id": "case-f002-overall-explores-every-tool",
+      "title": "売上全体の質問で、全 Tool を呼び歩かない",
+      "turns": [
+        "売上全体の状況を教えてください。"
+      ],
+      "available_from_chapter": 18,
+      "criteria": [
+        "tool_selection",
+        "data_groundedness",
+        "cost"
+      ],
+      "expected": {
+        "tools_any_of": [
+          "get_sales_summary"
+        ],
+        "must_contain_numbers": [
+          28298695
+        ],
+        "max_tool_calls": 2
+      },
+      "notes": "失敗 F-002。第18章の評価で、共通 Case 01（売上全体）が、時々失敗した。層: Tool の選択（Tool の説明）。get_sales_summary だけで足りる質問に、Agent が全 Tool を呼び、集めた値を自分で足して、出力の検査を使い切った。Tool を1回だけ呼んだ実行は、10回中8回すべて成功。全 Tool を10〜15回呼び歩いた2回のうち、1回が失敗した。"
+    }
+  ]
+}

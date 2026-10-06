@@ -1,0 +1,102 @@
+# 本番に近い構成（第16章）。開発用の docker-compose.yml との違い:
+#   - 秘密情報は、環境変数ではなく、ファイル（Docker secrets）で渡す。`docker inspect` に、値が出ない
+#   - APP_ENV=production: 起動の前に、設定を検査する（認証・DB のパスワード・LLM のキーなど）。足りなければ、起動しない
+#   - 認証あり。API の仕様（/docs）は公開しない
+#   - ルートファイルシステムを読み取り専用にし、権限を落とし、リソースに上限を置き、落ちたら再起動する
+# 起動: SECRETS_DIR=./secrets docker compose -f docker-compose.prod.yml up -d --build
+#       秘密情報の用意は chapters/ch16-production/init_secrets.sh。
+# これは、1台のホストの構成（Container Route の最小形）。複数台・クラウドへの配置は、本文の比較を参照。
+name: crewai-kindle-prod
+
+x-hardening: &hardening
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  pids_limit: 256
+  tmpfs:
+    - /tmp
+    - /home/app:uid=10001,mode=0700  # CrewAI が import 時に作る作業用のフォルダー。捨ててよい
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: {max-size: "10m", max-file: "3"}
+
+secrets:
+  postgres_password: {file: "${SECRETS_DIR:-./secrets}/postgres_password"}
+  database_url: {file: "${SECRETS_DIR:-./secrets}/database_url"}
+  openai_api_key: {file: "${SECRETS_DIR:-./secrets}/openai_api_key"}
+  auth_credentials: {file: "${SECRETS_DIR:-./secrets}/auth_credentials.json"}
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_DB: sales
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d sales"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    mem_limit: 1g
+    # 公式イメージは、起動時に root で権限を切り替えるため、cap_drop や読み取り専用にはしない。ポートも、公開しない
+
+  migrate:
+    <<: *hardening
+    build: .
+    image: crewai-kindle-app
+    command: ["python", "chapters/ch15-docker-postgresql/import_to_postgres.py"]
+    environment:
+      DATABASE_URL_FILE: /run/secrets/database_url
+    secrets: [database_url]
+    restart: "no"
+    depends_on:
+      db: {condition: service_healthy}
+
+  api:
+    <<: *hardening
+    image: crewai-kindle-app
+    environment:
+      APP_ENV: production
+      CREWAI_DISABLE_TELEMETRY: "true"
+      DATABASE_URL_FILE: /run/secrets/database_url
+      OPENAI_API_KEY_FILE: /run/secrets/openai_api_key
+      AUTH_CREDENTIALS_FILE: /run/secrets/auth_credentials
+      MODEL: ${MODEL:-gpt-4o-mini}
+    secrets: [database_url, openai_api_key, auth_credentials]
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - apidata:/app/data  # Trace と Memory
+    mem_limit: 1g
+    cpus: 1.5
+    depends_on:
+      db: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=2).status == 200 else 1)"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 20s
+
+  ui:
+    <<: *hardening
+    image: crewai-kindle-app
+    command: ["streamlit", "run", "chapters/ch16-production/ui.py", "--server.address", "0.0.0.0", "--server.port", "8501", "--server.headless", "true"]
+    environment:
+      ANALYSIS_API_URL: http://api:8000
+    ports:
+      - "127.0.0.1:8501:8501"
+    mem_limit: 512m
+    depends_on:
+      api: {condition: service_healthy}
+
+volumes:
+  pgdata:
+  apidata:
