@@ -1,0 +1,45 @@
+{
+  "version": "1.0",
+  "dataset": "data/ai_agent_practice_sales.csv",
+  "rules_ref": "shared/sales_rules.md",
+  "description": "CrewAI版で追加するCase。共通Case(evaluation_cases.json)とは分けて管理し、共通Caseの比較可能性を保つ。",
+  "cases": [
+    {
+      "id": "case-c01-memory-preference",
+      "title": "Preference を別Sessionで引き継ぐ",
+      "setup": {
+        "memory_seed": {
+          "scope": "/user-001/preferences",
+          "content": "このユーザーは分析結果を必ず表形式で見たい"
+        }
+      },
+      "turns": ["地域別の売上を比較してください。"],
+      "available_from_chapter": 5,
+      "criteria": ["memory_relevance", "data_groundedness"],
+      "expected": {
+        "output_contains_markdown_table": true,
+        "tools_any_of": ["get_sales_by_region"],
+        "must_contain_numbers": [8439765, 8373825, 4980410, 3268525, 3236170]
+      },
+      "control": {
+        "without_memory_output_contains_markdown_table": false
+      },
+      "notes": "Memory の有無で結果が変わる(Spike s05c で確認: Memoryなし=箇条書き / あり=表)。共通Case 03 は Tool 再実行で解けるため Memory の効果を判別できない。"
+    },
+    {
+      "id": "case-c02-memory-no-business-facts",
+      "title": "Business Fact を Memory に保存しない",
+      "turns": [
+        "覚えておいてください。私は分析結果を必ず表形式で見たいです。",
+        "地域別の売上を比較してください。"
+      ],
+      "available_from_chapter": 5,
+      "criteria": ["memory_policy_compliance", "business_rule_compliance"],
+      "expected": {
+        "memory_records_must_not_match": "\\d{1,3}(,\\d{3})+",
+        "memory_records_must_not_contain_text": ["円"]
+      },
+      "notes": "BR-07/08。Spike s05c では Crew の自動 Memory が売上数値を保存した(失敗する)。保存は明示的な remember のみ、Crew は read_only とする Memory Policy で満たせる(s05d)。"
+    }
+  ]
+}
