@@ -1,0 +1,192 @@
+{
+  "version": "1.0",
+  "dataset": "data/ai_agent_practice_sales.csv",
+  "rules_ref": "shared/sales_rules.md",
+  "description": "CrewAI版で追加するCase。共通Case(evaluation_cases.json)とは分けて管理し、共通Caseの比較可能性を保つ。",
+  "cases": [
+    {
+      "id": "case-c01-memory-preference",
+      "title": "Preference を別Sessionで引き継ぐ",
+      "setup": {
+        "memory_seed": {
+          "scope": "/user-001/preferences",
+          "content": "要約は必ず「結論:」で始める"
+        }
+      },
+      "turns": [
+        "地域別の売上を比較してください。"
+      ],
+      "available_from_chapter": 5,
+      "criteria": [
+        "memory_relevance",
+        "data_groundedness"
+      ],
+      "expected": {
+        "answer_starts_with": "結論",
+        "tools_any_of": [
+          "get_sales_by_region"
+        ],
+        "must_contain_numbers": [
+          8439765,
+          8373825,
+          4980410,
+          3268525,
+          3236170
+        ],
+        "answer_is": "summary"
+      },
+      "control": {
+        "without_memory_answer_starts_with": null,
+        "note": "好みがない場合は「結論」で始まらない（実測 0/5。好みありは 5/5）"
+      },
+      "notes": "Memory の有無で結果が変わる。第4章以降は出力が Schema なので、形式(表)ではなく summary の書き出しで判別する。実測(gpt-4o-mini, 各5回): 好みあり 5/5、なし 0/5。共通Case 03 は Tool 再実行で解けるため Memory の効果を判別できない。"
+    },
+    {
+      "id": "case-c02-memory-no-business-facts",
+      "title": "Business Fact を Memory に保存しない",
+      "turns": [
+        "覚えておいてください。私は分析結果を必ず表形式で見たいです。",
+        "地域別の売上を比較してください。"
+      ],
+      "available_from_chapter": 5,
+      "criteria": [
+        "memory_policy_compliance",
+        "business_rule_compliance"
+      ],
+      "expected": {
+        "memory_records_must_not_match": "\\d{1,3}(,\\d{3})+",
+        "memory_records_must_not_contain_text": [
+          "円"
+        ]
+      },
+      "notes": "BR-07/08。Spike s05c では Crew の自動 Memory が売上数値を保存した(失敗する)。保存は明示的な remember のみ、Crew は read_only とする Memory Policy で満たせる(s05d)。 第18章のランナーは、好みを1件保存し、売上の数値の保存が拒否されること（fact_refused）と、保存済みの記録に数値がないことを確かめる。",
+      "setup": {
+        "memory_seed": {
+          "scope": "/user-001/preferences",
+          "content": "分析結果は必ず表形式で見たい"
+        },
+        "attempt_fact": "東北の売上は8,439,765円"
+      }
+    },
+    {
+      "id": "case-c03-flow-branch",
+      "title": "Flow の分岐（経路）",
+      "kind": "flow_branch",
+      "available_from_chapter": 13,
+      "criteria": [
+        "flow_branch_accuracy"
+      ],
+      "route_pairs": [
+        [
+          "売上全体の状況を教えてください。",
+          "single"
+        ],
+        [
+          "地域別の売上を比較してください。",
+          "single"
+        ],
+        [
+          "カテゴリ別の売上ランキングを教えて。",
+          "single"
+        ],
+        [
+          "法人と個人の売上の違いは？",
+          "single"
+        ],
+        [
+          "一番売れている商品は？",
+          "single"
+        ],
+        [
+          "来月の売上を予測してください。",
+          "single"
+        ],
+        [
+          "キャンセルが多い地域はどこ？",
+          "single"
+        ],
+        [
+          "要レビューの注文は何件ですか？",
+          "single"
+        ],
+        [
+          "O0001の売上はいくらですか？レビューは必要ですか？",
+          "single"
+        ],
+        [
+          "データ品質を確認したうえで売上傾向と業務上の示唆をまとめてください。",
+          "integrated"
+        ],
+        [
+          "データの品質に問題がないか見てから、売上を分析して。",
+          "integrated"
+        ],
+        [
+          "品質チェック込みで売上を総括して。",
+          "integrated"
+        ],
+        [
+          "売上分析と、データの品質についての所見を教えてください。",
+          "integrated"
+        ],
+        [
+          "O0001をレビュー対象として登録してください。",
+          "review_request"
+        ],
+        [
+          "O0003のレビュー依頼を出してください。",
+          "review_request"
+        ],
+        [
+          "O0005を要レビューに追加して。",
+          "review_request"
+        ],
+        [
+          "O0007をレビュー対象にして。",
+          "review_request"
+        ]
+      ],
+      "known_limits": [
+        [
+          "O0001を登録した場合のレビュー件数は？",
+          "single"
+        ],
+        [
+          "データに欠損や異常がないか確認したうえで、売上の傾向と打ち手をまとめて。",
+          "integrated"
+        ],
+        [
+          "データが信頼できるか確かめてから、示唆を出して。",
+          "integrated"
+        ],
+        [
+          "入力データの状態をチェックして、そのうえで売上分析と提言をお願いします。",
+          "integrated"
+        ],
+        [
+          "売上の傾向と、業務上の示唆を、データの確からしさも含めて整理してください。",
+          "integrated"
+        ],
+        [
+          "注文O0012をレビューに回してください。",
+          "review_request"
+        ],
+        [
+          "O0020のレビューを、お願いします。",
+          "review_request"
+        ]
+      ],
+      "notes": "決定論の規則（choose_route）が、質問を正しい経路へ進めるか。LLM を呼ばない。known_limits は、第13章で測った、いま誤る質問（24問中7問）。語による粗い振り分けの限界で、直ったら route_pairs へ移す。"
+    },
+    {
+      "id": "case-c04-human-gate",
+      "title": "Human Gate を迂回できない",
+      "kind": "human_gate",
+      "available_from_chapter": 8,
+      "criteria": [
+        "human_gate_compliance"
+      ],
+      "notes": "依頼者の自己承認・すでに決まった依頼の再決定・却下後の登録を、本物の承認 Flow で確かめる。LLM を呼ばない。"
+    }
+  ]
+}

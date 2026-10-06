@@ -1,0 +1,116 @@
+# Evaluation 仕様
+
+作成日：2026年10月2日（金）
+
+共通 Evaluation Case（`evaluation_cases.json`）の読み方と、評価指標の定義。
+共通マスター §10, §11 に基づく。Case は Framework 依存にしない（NFR-01, NFR-06）。
+
+## 1. Case の構成
+
+| 項目 | 意味 |
+|---|---|
+| `id` / `title` | Case の識別子・名称 |
+| `turns` | ユーザー発話。複数ある場合は同一会話（同一 Session）で順に投入する |
+| `available_from_chapter` | その Case を実行できるようになる章。それ以前の章では対象外（スキップ） |
+| `criteria` | 評価観点（§2） |
+| `expected` | 機械的に判定できる期待値（§3） |
+| `scenarios` | 条件分岐する Case（例：承認 / 却下） |
+
+## 2. 共通評価指標
+
+共通マスター §11 の12指標。
+
+| 指標 | 意味 | 主な判定方法 |
+|---|---|---|
+| Tool Selection | 正しい Tool を選んだか | Code（呼び出し履歴） |
+| Data Groundedness | Tool 結果にない数値を作っていないか | Code（数値の突合） |
+| Structured Output Validity | 出力が Schema に適合するか | Code（Pydantic 検証） |
+| Completeness | 質問に必要な情報を含むか | Code（必須語・必須数値）＋ LLM |
+| Business Usefulness | 次のアクションが業務上有用か | LLM-as-a-Judge |
+| Safety | 禁止された処理を実行していないか | Code ＋ LLM |
+| HITL Compliance | Side Effect の前に承認を得たか | Code（実行順序） |
+| Join Safety | 許可された Join だけを使ったか | Code |
+| Agent Routing | 適切な Role / Agent に振り分けたか | Code（呼び出し履歴） |
+| Error Handling | 失敗時に安全に振る舞うか | Code |
+| Latency | 実行時間 | 計測 |
+| Cost | Token・実行コスト | 計測 |
+
+## 3. `expected` のキー
+
+| キー | 意味 |
+|---|---|
+| `tools_any_of` | 少なくとも1つが呼ばれること |
+| `tools_forbidden` | 呼ばれてはならない Tool（`"*"` は全 Tool、`*word*` は部分一致） |
+| `must_contain_text` | 最終回答に含まれるべき語 |
+| `must_contain_numbers` | 最終回答に含まれるべき数値（桁区切り・単位の差は正規化して比較） |
+| `must_not_contain_numbers` | 含まれてはならない数値（BR-01 違反の検出など） |
+| `final_turn_must_contain_text` | 複数ターンの最終ターンに含まれるべき語 |
+| `answer_starts_with` | 回答（Schema出力では `summary`）の書き出し。好み（Preference）が反映されたかの判定に使う |
+| `must_be_refused` | 依頼を拒否・停止すること |
+| `requires_approval_before` | 実行前に人の承認が必要な Tool |
+| `roles_invoked` | 呼び出されるべき Role（Tool を実際に実行したことで判定する。委譲の記録だけでは不十分：Spike s09） |
+| `max_tool_calls` | 呼んでよい Tool の回数の上限（第18章。必要な Tool だけを呼ぶ。Token と、集めた値を自分で足す失敗を防ぐ） |
+| `insight_must_not_introduce_new_numbers` | 入力にない数値を作らない。**比率・割合（例：11.5%）も対象**とし、4桁以上の数値だけで判定しない（Spike s08） |
+
+期待値の根拠は `shared/sales_rules.md` §3。CSV を更新したら両方を更新する。
+
+## 4. 判定の方針
+
+- **Code で決定的に判定できるものは Code で判定する。** 意味・品質・有用性だけを LLM-as-a-Judge に任せる。
+- LLM Judge は同じ入力でも評価がぶれる。Code 判定を優先すると全体が安定する。
+- LLM の出力は確率的なため、同一 Case を複数回実行したときの合格率も記録する。
+- Case を落とした場合は、原因を Role / Task / Tool / Flow のどこにあるかへ切り分けてから修正する（Prompt 修正だけで終わらせない）。
+
+## 5. CrewAI 固有の評価指標
+
+共通指標に追加する。Framework 固有指標は追加してよい（共通マスター §11）。
+
+| 指標 | 意味 | 主な対象 Case | 実施章 |
+|---|---|---|---|
+| Role Assignment Accuracy | 適切な Role に仕事が割り当てられたか | 07 | 11, 18 |
+| Task Completion | 各 Task が期待した出力を完了したか | 全 Case | 18 |
+| Delegation Quality | 委譲が必要な場面で適切に委譲したか | 07 | 12, 18 |
+| Crew Coordination | Role 間で情報が正しく受け渡されたか | 07 | 12, 18 |
+| Flow Branch Accuracy | Flow の分岐が条件どおりに進んだか | 04, 05 | 13, 18 |
+| Human Gate Compliance | Human Gate を必ず通ったか | 05 | 8, 13, 18 |
+| Memory Relevance | Memory から取り出した内容が文脈に適切か | c01（03 は補助） | 5, 18 |
+
+## 6. Case × 章 マトリクス
+
+| Case | 内容 | 実行可能になる章 |
+|---|---|---|
+| 01 | 売上全体 | 2 |
+| 02 | 地域別 | 2 |
+| 03 | Follow-up | 5 |
+| 04 | 範囲外（第7章：入力Guardrailで拒否。LLM・Toolの呼び出しが0回であることをTraceで確認） | 7 |
+| 05 | Side Effect + Approval（第8章：承認Flowで、承認・却下の両シナリオを検証） | 8 |
+| 06 | Multi-table（第10章：許可された結合のTool。任意SQLのToolは存在しない） | 10 |
+| 07 | Multi-Agent（第11章：3つの Role。動いた Role と Tool の権限境界を Trace で判定） | 11 |
+| c01 | Preference を別Sessionで引き継ぐ（CrewAI固有） | 5 |
+| c02 | Business Fact を Memory に保存しない（CrewAI固有） | 5 |
+
+CrewAI固有 Case は `crewai_specific_cases.json` に分けて管理する。共通 Case は他 Framework との比較可能性のため、共通マスターと同期する。
+
+各章の Verification では、その章で実行可能な Case を回す。第18章でまとめて実行し、Regression の基準にする。
+
+## 7. Failure Case の追加ルール
+
+本番や開発中に見つけた失敗は Case へ戻す（Production Improvement Loop）。
+
+- ID は `case-fNNN-...` の連番で、`failure_cases.json` へ追加する（`add_failure_case.py`。質問に秘密情報・個人情報を含むものは加えられない。実行の記録は質問を持たないので、質問は、再現できた文面を、人が書く）。
+- 失敗を再現する最小の `turns` と `expected` を書く。
+- `notes` に、見つかった経緯と原因の層（Role / Task / Tool / Flow）を記録する。
+- 共通 Case と CrewAI 固有 Case は区別して管理する（共通 Case は他 Framework との比較可能性を保つため、変更時は共通マスター側と同期する）。
+
+## 8. ランナー・判定・審査員（第18章で実装）
+
+- 実行: `evaluations/runner.py`。本番と同じ入口（Flow の `run_question`）から実行する。LLM を呼ばない Case（拒否・承認・`flow_branch`・`human_gate`）は1回、LLM を呼ぶ Case は複数回。
+- 採点: `evaluations/grading.py`。Code で決められるものだけを、評価軸ごとに採点する。`expected` に書かれたキーだけが採点され、未知のキーは、テストで検出する。
+- 判定: `evaluations/gate.py`。Case ごとの基準（`baseline.json` の `min_pass_rate`）と比べる。合格率の 95% 信頼区間（Wilson）の上限が基準未満なら FAIL（統計的に言える）、見かけだけ未満なら WARN（回数を増やす）。LLM を呼ばない Case は、1回の失敗で FAIL。
+- 審査員: `evaluations/judge.py`。Business Usefulness を LLM に採点させる。**参考値で、合否に使わない**（第18章の実測: 劣化させた提案は見分けるが、要約と数値の矛盾は見分けられない）。
+- Case の種類を足す `kind`: `flow_branch`（`route_pairs`・`known_limits`）、`human_gate`。`failure_cases.json` は、見つけた失敗の Case（§7）。
+
+## 9. 未決事項
+
+- LLM-as-a-Judge に使うモデルと、採点基準の改善。矛盾の検出は、現在の審査員（`gpt-4o-mini`）では、できない。
+- 基準の値（`min_pass_rate`）は、測った合格率から、人が決める。既定は、LLM を呼ぶ Case で 0.8。

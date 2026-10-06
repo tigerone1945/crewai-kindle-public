@@ -1,0 +1,68 @@
+# 画面（ui）・分析サービス（api）・データベース（db）。初回の取り込み（migrate）は、1回だけ動いて終わる。
+# 起動: POSTGRES_PASSWORD=<パスワード> OPENAI_API_KEY=<キー> docker compose up --build
+#       （値は、シェルの環境変数か、リポジトリ直下の .env（コミットしない）に置く。このファイルには書かない）
+# 公開するポートは、手元（127.0.0.1）だけ。認証・認可は第16章。
+name: crewai-kindle
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD を設定してください}
+      POSTGRES_DB: sales
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d sales"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # ポートは公開しない。api と migrate だけが、内部のネットワークから届く
+
+  migrate:
+    build: .
+    command: ["python", "chapters/ch15-docker-postgresql/import_to_postgres.py"]
+    environment:
+      DATABASE_URL: postgresql://app:${POSTGRES_PASSWORD}@db:5432/sales
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://app:${POSTGRES_PASSWORD}@db:5432/sales
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY を設定してください}  # 秘密情報を持つのは、このコンテナだけ
+      MODEL: ${MODEL:-gpt-4o-mini}
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - apidata:/app/data  # Trace と Memory
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=2).status == 200 else 1)"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 20s
+
+  ui:
+    build: .
+    command: ["streamlit", "run", "chapters/ch14-fastapi-service/ui.py", "--server.address", "0.0.0.0", "--server.port", "8501", "--server.headless", "true"]
+    environment:
+      ANALYSIS_API_URL: http://api:8000  # ui は、API の契約だけを知る。DB の接続先も、LLM のキーも、持たない
+    ports:
+      - "127.0.0.1:8501:8501"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  apidata:

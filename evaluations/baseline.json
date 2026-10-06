@@ -1,0 +1,131 @@
+{
+  "meta": {
+    "commit": "1cad78b",
+    "model": "openai/gpt-4o-mini",
+    "crewai": "1.15.23",
+    "runs": 5,
+    "date": "2026-10-05"
+  },
+  "cases": {
+    "case-01-overall-sales": {
+      "n": 5,
+      "passes": 5,
+      "deterministic": false,
+      "min_pass_rate": 0.8,
+      "mean_tokens": 3574,
+      "median_seconds": 6.519
+    },
+    "case-02-region-comparison": {
+      "n": 5,
+      "passes": 5,
+      "deterministic": false,
+      "min_pass_rate": 0.8,
+      "mean_tokens": 3799,
+      "median_seconds": 6.047
+    },
+    "case-03-follow-up": {
+      "n": 5,
+      "passes": 5,
+      "deterministic": false,
+      "min_pass_rate": 0.8,
+      "mean_tokens": 7766,
+      "median_seconds": 11.445
+    },
+    "case-04-out-of-scope": {
+      "n": 1,
+      "passes": 1,
+      "deterministic": true,
+      "min_pass_rate": 1.0,
+      "mean_tokens": 0,
+      "median_seconds": 0.006
+    },
+    "case-05-side-effect-approval": {
+      "n": 2,
+      "passes": 2,
+      "deterministic": true,
+      "min_pass_rate": 1.0,
+      "mean_tokens": 0,
+      "median_seconds": 0.018
+    },
+    "case-06-multi-table": {
+      "n": 5,
+      "passes": 5,
+      "deterministic": false,
+      "min_pass_rate": 0.8,
+      "mean_tokens": 3647,
+      "median_seconds": 5.584
+    },
+    "case-07-multi-agent": {
+      "n": 5,
+      "passes": 5,
+      "deterministic": false,
+      "min_pass_rate": 0.8,
+      "mean_tokens": 7719,
+      "median_seconds": 19.203
+    },
+    "case-c01-memory-preference": {
+      "n": 10,
+      "passes": 10,
+      "deterministic": false,
+      "min_pass_rate": 0.8,
+      "mean_tokens": 3835,
+      "median_seconds": 6.283
+    },
+    "case-c02-memory-no-business-facts": {
+      "n": 5,
+      "passes": 5,
+      "deterministic": false,
+      "min_pass_rate": 0.8,
+      "mean_tokens": 3900,
+      "median_seconds": 7.155
+    },
+    "case-c03-flow-branch": {
+      "n": 1,
+      "passes": 1,
+      "deterministic": true,
+      "min_pass_rate": 1.0,
+      "mean_tokens": 0,
+      "median_seconds": 0.0
+    },
+    "case-c04-human-gate": {
+      "n": 1,
+      "passes": 1,
+      "deterministic": true,
+      "min_pass_rate": 1.0,
+      "mean_tokens": 0,
+      "median_seconds": 0.0
+    },
+    "case-f001a-cumulative-share-region": {
+      "n": 5,
+      "passes": 5,
+      "deterministic": false,
+      "min_pass_rate": 0.8,
+      "mean_tokens": 5864,
+      "median_seconds": 5.915
+    },
+    "case-f001b-cumulative-share-category": {
+      "n": 5,
+      "passes": 5,
+      "deterministic": false,
+      "min_pass_rate": 0.8,
+      "mean_tokens": 5889,
+      "median_seconds": 6.902
+    },
+    "case-f001c-cumulative-share-product": {
+      "n": 5,
+      "passes": 5,
+      "deterministic": false,
+      "min_pass_rate": 0.8,
+      "mean_tokens": 4018,
+      "median_seconds": 5.001
+    },
+    "case-f002-overall-explores-every-tool": {
+      "n": 5,
+      "passes": 5,
+      "deterministic": false,
+      "min_pass_rate": 0.8,
+      "mean_tokens": 3571,
+      "median_seconds": 5.213
+    }
+  }
+}
